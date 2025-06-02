@@ -288,7 +288,7 @@
             formulaInput = document.getElementById('formulaInput');
             
             formulaInput.addEventListener('focus', function() {
-                if (formulaInput.value.startsWith('=')) {
+                if (formulaInput.value && formulaInput.value.startsWith('=')) {
                     isEditingFormula = true;
                     document.getElementById('formulaBar').classList.add('editing');
                     highlightReferencedCells();
@@ -313,7 +313,7 @@
             });
             
             formulaInput.addEventListener('input', function(e) {
-                if (formulaInput.value.startsWith('=')) {
+                if (formulaInput.value && formulaInput.value.startsWith('=')) {
                     isEditingFormula = true;
                     document.getElementById('formulaBar').classList.add('editing');
                     highlightReferencedCells();
@@ -362,7 +362,7 @@
             const cellId = getCellId(params);
             
             // If we're editing a formula in the formula bar
-            if (isEditingFormula && formulaInput.value.startsWith('=')) {
+            if (isEditingFormula && formulaInput.value && formulaInput.value.startsWith('=')) {
                 params.event.preventDefault();
                 params.event.stopPropagation();
                 
@@ -427,15 +427,18 @@
             // If starting to type = in a cell, move to formula bar
             setTimeout(() => {
                 const editing = params.api.getCellEditorInstances()[0];
-                if (editing && editing.getValue && editing.getValue().startsWith('=')) {
-                    params.api.stopEditing(true);
-                    formulaInput.value = editing.getValue();
-                    formulaInput.focus();
-                    formulaInput.setSelectionRange(formulaInput.value.length, formulaInput.value.length);
-                    isEditingFormula = true;
-                    document.getElementById('formulaBar').classList.add('editing');
-                    selectedCell = params;
-                    document.getElementById('cellAddress').textContent = cellId;
+                if (editing && editing.getValue) {
+                    const val = editing.getValue();
+                    if (val && val.toString().startsWith('=')) {
+                        params.api.stopEditing(true);
+                        formulaInput.value = val;
+                        formulaInput.focus();
+                        formulaInput.setSelectionRange(formulaInput.value.length, formulaInput.value.length);
+                        isEditingFormula = true;
+                        document.getElementById('formulaBar').classList.add('editing');
+                        selectedCell = params;
+                        document.getElementById('cellAddress').textContent = cellId;
+                    }
                 }
             }, 10);
         }
@@ -596,7 +599,7 @@
         function highlightReferencedCells() {
             clearHighlights();
             const formula = formulaInput.value;
-            if (!formula.startsWith('=')) return;
+            if (!formula || !formula.startsWith('=')) return;
             
             // Extract cell references from formula
             const cellRefs = formula.match(/[A-Z]\d+/g) || [];
