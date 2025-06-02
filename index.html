@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AG Grid Excel-like App</title>
+    <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@31.0.0/dist/ag-grid-community.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.0.0/dist/styles/ag-grid.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.0.0/dist/styles/ag-theme-alpine.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+        h1 {
+            margin-top: 0;
+            color: #333;
+        }
+        .controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        button {
+            padding: 8px 16px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #myGrid {
+            height: 600px;
+            width: 100%;
+        }
+        .formula-bar {
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+        .formula-bar label {
+            font-weight: bold;
+            color: #555;
+        }
+        .formula-bar input {
+            flex: 1;
+            padding: 6px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+        }
+        .formula-bar input:focus {
+            outline: 2px solid #007bff;
+            border-color: #007bff;
+        }
+        .formula-bar.editing {
+            background-color: #e3f2fd;
+        }
+        .cell-address {
+            font-weight: bold;
+            color: #007bff;
+            min-width: 60px;
+        }
+        .info {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .formula-cell {
+            font-style: italic;
+            color: #28a745;
+        }
+        .ag-cell-focus {
+            border: 2px solid #007bff !important;
+        }
+        .example-section {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+        .example-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 10px;
+        }
+        .example-item {
+            padding: 10px;
+            background-color: white;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+        .example-item strong {
+            display: block;
+            color: #007bff;
+            margin-bottom: 5px;
+        }
+        .highlighted-reference {
+            background-color: #bbdefb !important;
+            border: 2px solid #1976d2 !important;
+        }
+        .status-message {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            background-color: #4caf50;
+            color: white;
+            border-radius: 4px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Excel-like Spreadsheet with AG Grid</h1>
+        
+        <div class="formula-bar" id="formulaBar">
+            <span class="cell-address" id="cellAddress">A1</span>
+            <label for="formulaInput">fx</label>
+            <input type="text" id="formulaInput" placeholder="Enter formula or value">
+        </div>
+        
+        <div class="controls">
+            <button onclick="addRow()">Add Row</button>
+            <button onclick="addColumn()">Add Column</button>
+            <button onclick="clearAll()">Clear All</button>
+        </div>
+        
+        <div id="myGrid" class="ag-theme-alpine"></div>
+        
+        <div class="info">
+            <strong>Instructions:</strong><br>
+            • <strong>Click Formula Creation:</strong> Type '=' in the formula bar, then click cells to add them to your formula<br>
+            • Or type '=' in any cell and you'll be moved to the formula bar automatically<br>
+            • Click on cells while creating formulas to insert their references<br>
+            • Type values or formulas starting with '=' (e.g., =A1+B1, =SUM(A1:A5), =A1*2)<br>
+            • Press Enter to confirm or Escape to cancel<br>
+            • Supported functions: SUM, AVERAGE, MIN, MAX, COUNT<br>
+            • Cell references update automatically when formulas change
+        </div>
+        
+        <div class="example-section">
+            <strong>Formula Examples:</strong>
+            <div class="example-grid">
+                <div class="example-item">
+                    <strong>Basic Math</strong>
+                    =A1+B1<br>
+                    =A1-B1<br>
+                    =A1*B1<br>
+                    =A1/B1<br>
+                    =(A1+B1)*C1
+                </div>
+                <div class="example-item">
+                    <strong>Functions</strong>
+                    =SUM(A1:A10)<br>
+                    =AVERAGE(B1:B5)<br>
+                    =MIN(C1:C20)<br>
+                    =MAX(D1:D15)<br>
+                    =COUNT(E1:E30)
+                </div>
+                <div class="example-item">
+                    <strong>Complex Formulas</strong>
+                    =SUM(A1:A5)*1.2<br>
+                    =(A1+B1)/COUNT(C1:C10)<br>
+                    =MAX(A1:A10)-MIN(A1:A10)<br>
+                    =AVERAGE(A1:A5)*2<br>
+                    =(SUM(A1:A3)+SUM(B1:B3))/2
+                </div>
+            </div>
+        </div>
+        
+        <div class="status-message" id="statusMessage"></div>
+    </div>
+
+    <script>
+        let gridApi;
+        let selectedCell = null;
+        let cellData = {};
+        let cellFormulas = {};
+        let isEditingFormula = false;
+        let formulaInput = null;
+        let referencedCells = [];
+
+        // Create initial columns A-Z (26 columns)
+        const columnDefs = [];
+        for (let i = 0; i < 26; i++) {
+            const colName = String.fromCharCode(65 + i);
+            columnDefs.push({
+                field: colName,
+                headerName: colName,
+                editable: true,
+                width: 100,
+                cellRenderer: params => {
+                    const cellId = getCellId(params);
+                    if (cellFormulas[cellId]) {
+                        return params.value || '';
+                    }
+                    return params.value || '';
+                },
+                cellClass: params => {
+                    const cellId = getCellId(params);
+                    const classes = [];
+                    if (cellFormulas[cellId]) {
+                        classes.push('formula-cell');
+                    }
+                    if (referencedCells.includes(cellId)) {
+                        classes.push('highlighted-reference');
+                    }
+                    return classes.join(' ');
+                }
+            });
+        }
+
+        // Add row number column
+        columnDefs.unshift({
+            field: 'rowNum',
+            headerName: '',
+            width: 50,
+            pinned: 'left',
+            cellRenderer: params => params.rowIndex + 1,
+            cellStyle: { 
+                backgroundColor: '#f5f5f5', 
+                textAlign: 'center',
+                fontWeight: 'bold',
+                color: '#666'
+            }
+        });
+
+        // Create initial rows (50 rows)
+        const rowData = [];
+        for (let i = 0; i < 50; i++) {
+            rowData.push({});
+        }
+
+        // Grid Options
+        const gridOptions = {
+            columnDefs: columnDefs,
+            rowData: rowData,
+            defaultColDef: {
+                resizable: true,
+                sortable: false
+            },
+            onCellClicked: onCellClicked,
+            onCellValueChanged: onCellValueChanged,
+            onCellEditingStarted: onCellEditingStarted,
+            singleClickEdit: true,
+            stopEditingWhenCellsLoseFocus: true,
+            suppressClickEdit: false
+        };
+
+        // Initialize the grid
+        document.addEventListener('DOMContentLoaded', function() {
+            const gridDiv = document.querySelector('#myGrid');
+            gridApi = agGrid.createGrid(gridDiv, gridOptions);
+            
+            // Formula bar input handler
+            formulaInput = document.getElementById('formulaInput');
+            
+            formulaInput.addEventListener('focus', function() {
+                if (formulaInput.value.startsWith('=')) {
+                    isEditingFormula = true;
+                    document.getElementById('formulaBar').classList.add('editing');
+                    highlightReferencedCells();
+                }
+            });
+            
+            formulaInput.addEventListener('blur', function() {
+                // Delay to allow click events to process
+                setTimeout(() => {
+                    if (!isEditingFormula) {
+                        document.getElementById('formulaBar').classList.remove('editing');
+                        clearHighlights();
+                    }
+                }, 100);
+            });
+            
+            formulaInput.addEventListener('input', function(e) {
+                if (formulaInput.value.startsWith('=')) {
+                    isEditingFormula = true;
+                    document.getElementById('formulaBar').classList.add('editing');
+                    highlightReferencedCells();
+                } else {
+                    isEditingFormula = false;
+                    document.getElementById('formulaBar').classList.remove('editing');
+                    clearHighlights();
+                }
+            });
+            
+            formulaInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && selectedCell) {
+                    const value = formulaInput.value;
+                    updateCellValue(selectedCell.rowIndex, selectedCell.column.colId, value);
+                    recalculateFormulas();
+                    isEditingFormula = false;
+                    document.getElementById('formulaBar').classList.remove('editing');
+                    clearHighlights();
+                    formulaInput.blur();
+                    showStatus('Formula saved!');
+                } else if (e.key === 'Escape') {
+                    isEditingFormula = false;
+                    document.getElementById('formulaBar').classList.remove('editing');
+                    clearHighlights();
+                    formulaInput.blur();
+                    if (selectedCell) {
+                        const cellId = getCellId(selectedCell);
+                        formulaInput.value = cellFormulas[cellId] || cellData[cellId] || '';
+                    }
+                }
+            });
+        });
+
+        function getCellId(params) {
+            if (params.column.colId === 'rowNum') return null;
+            return `${params.column.colId}${params.rowIndex + 1}`;
+        }
+
+        function getCellAddress(col, row) {
+            return `${col}${row + 1}`;
+        }
+
+        function onCellClicked(params) {
+            if (params.column.colId === 'rowNum') return;
+            
+            const cellId = getCellId(params);
+            
+            // If we're editing a formula in the formula bar
+            if (isEditingFormula && document.activeElement === formulaInput) {
+                params.event.preventDefault();
+                params.event.stopPropagation();
+                
+                // Insert cell reference at cursor position
+                const currentValue = formulaInput.value;
+                const cursorPos = formulaInput.selectionStart;
+                
+                // Insert cell reference at cursor position
+                const newValue = currentValue.substring(0, cursorPos) + cellId + currentValue.substring(cursorPos);
+                formulaInput.value = newValue;
+                
+                // Set cursor position after the inserted cell reference
+                const newCursorPos = cursorPos + cellId.length;
+                formulaInput.setSelectionRange(newCursorPos, newCursorPos);
+                
+                // Keep focus on formula input
+                formulaInput.focus();
+                
+                // Update highlights
+                highlightReferencedCells();
+                
+                return false; // Prevent default grid behavior
+            }
+            
+            // Normal cell selection
+            selectedCell = params;
+            document.getElementById('cellAddress').textContent = cellId;
+            
+            if (cellFormulas[cellId]) {
+                formulaInput.value = cellFormulas[cellId];
+            } else {
+                formulaInput.value = params.value || '';
+            }
+        }
+
+        function onCellEditingStarted(params) {
+            const cellId = getCellId(params);
+            
+            // If starting to type = in a cell, move to formula bar
+            setTimeout(() => {
+                const editing = params.api.getCellEditorInstances()[0];
+                if (editing && editing.getValue && editing.getValue().startsWith('=')) {
+                    params.api.stopEditing(true);
+                    formulaInput.value = editing.getValue();
+                    formulaInput.focus();
+                    formulaInput.setSelectionRange(formulaInput.value.length, formulaInput.value.length);
+                    isEditingFormula = true;
+                    document.getElementById('formulaBar').classList.add('editing');
+                    selectedCell = params;
+                    document.getElementById('cellAddress').textContent = cellId;
+                }
+            }, 10);
+            
+            // Show formula if cell has one
+            if (cellFormulas[cellId] && !isEditingFormula) {
+                setTimeout(() => {
+                    params.api.stopEditing();
+                    params.api.startEditingCell({
+                        rowIndex: params.rowIndex,
+                        colKey: params.column.colId,
+                        charPress: cellFormulas[cellId]
+                    });
+                }, 0);
+            }
+        }
+
+        function onCellValueChanged(params) {
+            const cellId = getCellId(params);
+            const value = params.newValue;
+            
+            updateCellValue(params.rowIndex, params.column.colId, value);
+            recalculateFormulas();
+        }
+
+        function updateCellValue(rowIndex, colId, value) {
+            const cellId = `${colId}${rowIndex + 1}`;
+            
+            if (value && value.toString().startsWith('=')) {
+                cellFormulas[cellId] = value;
+                const result = evaluateFormula(value, rowIndex, colId);
+                cellData[cellId] = result;
+                
+                const rowNode = gridApi.getRowNode(rowIndex);
+                rowNode.setDataValue(colId, result);
+            } else {
+                delete cellFormulas[cellId];
+                cellData[cellId] = value;
+                
+                const rowNode = gridApi.getRowNode(rowIndex);
+                rowNode.setDataValue(colId, value);
+            }
+            
+            // Update formula bar
+            if (selectedCell && selectedCell.rowIndex === rowIndex && selectedCell.column.colId === colId) {
+                document.getElementById('formulaInput').value = cellFormulas[cellId] || value || '';
+            }
+        }
+
+        function evaluateFormula(formula, currentRow, currentCol) {
+            try {
+                let expression = formula.substring(1); // Remove '='
+                
+                // Handle functions
+                expression = expression.replace(/SUM\(([A-Z]\d+):([A-Z]\d+)\)/gi, (match, start, end) => {
+                    return calculateRangeSum(start, end);
+                });
+                
+                expression = expression.replace(/AVERAGE\(([A-Z]\d+):([A-Z]\d+)\)/gi, (match, start, end) => {
+                    return calculateRangeAverage(start, end);
+                });
+                
+                expression = expression.replace(/MIN\(([A-Z]\d+):([A-Z]\d+)\)/gi, (match, start, end) => {
+                    return calculateRangeMin(start, end);
+                });
+                
+                expression = expression.replace(/MAX\(([A-Z]\d+):([A-Z]\d+)\)/gi, (match, start, end) => {
+                    return calculateRangeMax(start, end);
+                });
+                
+                expression = expression.replace(/COUNT\(([A-Z]\d+):([A-Z]\d+)\)/gi, (match, start, end) => {
+                    return calculateRangeCount(start, end);
+                });
+                
+                // Replace cell references with values
+                expression = expression.replace(/([A-Z])(\d+)/g, (match, col, row) => {
+                    const cellId = `${col}${row}`;
+                    const value = cellData[cellId];
+                    return value !== undefined && value !== '' ? value : 0;
+                });
+                
+                // Evaluate the expression
+                return Function('"use strict"; return (' + expression + ')')();
+            } catch (e) {
+                return '#ERROR!';
+            }
+        }
+
+        function calculateRangeSum(start, end) {
+            const values = getRangeValues(start, end);
+            return values.reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
+        }
+
+        function calculateRangeAverage(start, end) {
+            const values = getRangeValues(start, end);
+            const numbers = values.filter(val => !isNaN(parseFloat(val)));
+            return numbers.length > 0 ? numbers.reduce((sum, val) => sum + parseFloat(val), 0) / numbers.length : 0;
+        }
+
+        function calculateRangeMin(start, end) {
+            const values = getRangeValues(start, end);
+            const numbers = values.filter(val => !isNaN(parseFloat(val))).map(val => parseFloat(val));
+            return numbers.length > 0 ? Math.min(...numbers) : 0;
+        }
+
+        function calculateRangeMax(start, end) {
+            const values = getRangeValues(start, end);
+            const numbers = values.filter(val => !isNaN(parseFloat(val))).map(val => parseFloat(val));
+            return numbers.length > 0 ? Math.max(...numbers) : 0;
+        }
+
+        function calculateRangeCount(start, end) {
+            const values = getRangeValues(start, end);
+            return values.filter(val => val !== '' && val !== undefined && val !== null).length;
+        }
+
+        function getRangeValues(start, end) {
+            const startCol = start.match(/[A-Z]/)[0];
+            const startRow = parseInt(start.match(/\d+/)[0]);
+            const endCol = end.match(/[A-Z]/)[0];
+            const endRow = parseInt(end.match(/\d+/)[0]);
+            
+            const values = [];
+            
+            for (let col = startCol.charCodeAt(0); col <= endCol.charCodeAt(0); col++) {
+                for (let row = startRow; row <= endRow; row++) {
+                    const cellId = `${String.fromCharCode(col)}${row}`;
+                    values.push(cellData[cellId]);
+                }
+            }
+            
+            return values;
+        }
+
+        function recalculateFormulas() {
+            // Recalculate all formulas
+            for (const cellId in cellFormulas) {
+                const match = cellId.match(/([A-Z])(\d+)/);
+                if (match) {
+                    const col = match[1];
+                    const row = parseInt(match[2]) - 1;
+                    const formula = cellFormulas[cellId];
+                    const result = evaluateFormula(formula, row, col);
+                    cellData[cellId] = result;
+                    
+                    const rowNode = gridApi.getRowNode(row);
+                    if (rowNode) {
+                        rowNode.setDataValue(col, result);
+                    }
+                }
+            }
+        }
+
+        function highlightReferencedCells() {
+            clearHighlights();
+            const formula = formulaInput.value;
+            if (!formula.startsWith('=')) return;
+            
+            // Extract cell references from formula
+            const cellRefs = formula.match(/[A-Z]\d+/g) || [];
+            referencedCells = [...new Set(cellRefs)]; // Remove duplicates
+            
+            // Refresh grid to apply highlighting
+            gridApi.refreshCells({ force: true });
+        }
+
+        function clearHighlights() {
+            referencedCells = [];
+            gridApi.refreshCells({ force: true });
+        }
+
+        function showStatus(message) {
+            const statusEl = document.getElementById('statusMessage');
+            statusEl.textContent = message;
+            statusEl.style.display = 'block';
+            setTimeout(() => {
+                statusEl.style.display = 'none';
+            }, 2000);
+        }
+
+        function addRow() {
+            const newRow = {};
+            gridApi.applyTransaction({ add: [newRow] });
+        }
+
+        function addColumn() {
+            const currentCols = gridApi.getColumns().length - 1; // Subtract row number column
+            if (currentCols >= 26) {
+                alert('Maximum columns reached (A-Z)');
+                return;
+            }
+            const newColName = String.fromCharCode(65 + currentCols);
+            
+            const newColDef = {
+                field: newColName,
+                headerName: newColName,
+                editable: true,
+                width: 100,
+                cellRenderer: params => {
+                    const cellId = getCellId(params);
+                    if (cellFormulas[cellId]) {
+                        return params.value || '';
+                    }
+                    return params.value || '';
+                },
+                cellClass: params => {
+                    const cellId = getCellId(params);
+                    const classes = [];
+                    if (cellFormulas[cellId]) {
+                        classes.push('formula-cell');
+                    }
+                    if (referencedCells.includes(cellId)) {
+                        classes.push('highlighted-reference');
+                    }
+                    return classes.join(' ');
+                }
+            };
+            
+            const allColDefs = [...gridApi.getColumnDefs(), newColDef];
+            gridApi.setGridOption('columnDefs', allColDefs);
+        }
+
+        function clearAll() {
+            if (confirm('Are you sure you want to clear all data?')) {
+                cellData = {};
+                cellFormulas = {};
+                gridApi.setGridOption('rowData', Array(50).fill({}));
+                document.getElementById('formulaInput').value = '';
+                showStatus('All data cleared!');
+            }
+        }
+    </script>
+</body>
+</html>
