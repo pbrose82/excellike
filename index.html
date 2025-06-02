@@ -270,7 +270,13 @@
             onCellEditingStarted: onCellEditingStarted,
             singleClickEdit: true,
             stopEditingWhenCellsLoseFocus: true,
-            suppressClickEdit: false
+            suppressClickEdit: false,
+            onCellEditingStopped: (params) => {
+                // Don't stop editing if we're in formula mode
+                if (isEditingFormula) {
+                    return false;
+                }
+            }
         };
 
         // Initialize the grid
@@ -289,7 +295,14 @@
                 }
             });
             
-            formulaInput.addEventListener('blur', function() {
+            formulaInput.addEventListener('blur', function(e) {
+                // Don't do anything on blur if we're editing a formula
+                // This prevents incomplete formulas from being evaluated
+                if (isEditingFormula) {
+                    e.preventDefault();
+                    return;
+                }
+                
                 // Delay to allow click events to process
                 setTimeout(() => {
                     if (!isEditingFormula) {
@@ -349,7 +362,7 @@
             const cellId = getCellId(params);
             
             // If we're editing a formula in the formula bar
-            if (isEditingFormula && document.activeElement === formulaInput) {
+            if (isEditingFormula && formulaInput.value.startsWith('=')) {
                 params.event.preventDefault();
                 params.event.stopPropagation();
                 
@@ -366,12 +379,18 @@
                 formulaInput.setSelectionRange(newCursorPos, newCursorPos);
                 
                 // Keep focus on formula input
-                formulaInput.focus();
+                setTimeout(() => formulaInput.focus(), 0);
                 
                 // Update highlights
                 highlightReferencedCells();
                 
                 return false; // Prevent default grid behavior
+            }
+            
+            // If we were editing a formula but clicked without it being complete, keep the formula bar active
+            if (isEditingFormula) {
+                setTimeout(() => formulaInput.focus(), 0);
+                return;
             }
             
             // Normal cell selection
@@ -417,6 +436,11 @@
         }
 
         function onCellValueChanged(params) {
+            // Don't process changes if we're editing a formula
+            if (isEditingFormula) {
+                return;
+            }
+            
             const cellId = getCellId(params);
             const value = params.newValue;
             
