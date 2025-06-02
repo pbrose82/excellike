@@ -456,10 +456,15 @@
         function updateCellValue(rowIndex, colId, value) {
             const cellId = `${colId}${rowIndex + 1}`;
             
+            console.log(`Updating cell ${cellId} with value:`, value);
+            
             if (value && value.toString().startsWith('=')) {
                 cellFormulas[cellId] = value;
                 const result = evaluateFormula(value, rowIndex, colId);
                 cellData[cellId] = result;
+                
+                console.log(`Stored formula for ${cellId}:`, cellFormulas[cellId]);
+                console.log(`Calculated result:`, result);
                 
                 const rowNode = gridApi.getRowNode(rowIndex);
                 if (rowNode) {
@@ -474,6 +479,9 @@
                     rowNode.setDataValue(colId, value);
                 }
             }
+            
+            // Log current state
+            console.log('All formulas:', cellFormulas);
             
             // Update formula bar to show the actual formula or value
             if (selectedCell && selectedCell.rowIndex === rowIndex && selectedCell.column.colId === colId) {
