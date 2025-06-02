@@ -397,15 +397,32 @@
             selectedCell = params;
             document.getElementById('cellAddress').textContent = cellId;
             
+            // Always show the formula if one exists, otherwise show the value
             if (cellFormulas[cellId]) {
                 formulaInput.value = cellFormulas[cellId];
             } else {
-                formulaInput.value = params.value || '';
+                formulaInput.value = cellData[cellId] || params.value || '';
             }
         }
 
         function onCellEditingStarted(params) {
             const cellId = getCellId(params);
+            
+            // If the cell has a formula, start editing with the formula, not the value
+            if (cellFormulas[cellId]) {
+                setTimeout(() => {
+                    params.api.stopEditing(true);
+                    formulaInput.value = cellFormulas[cellId];
+                    formulaInput.focus();
+                    formulaInput.setSelectionRange(formulaInput.value.length, formulaInput.value.length);
+                    isEditingFormula = true;
+                    document.getElementById('formulaBar').classList.add('editing');
+                    selectedCell = params;
+                    document.getElementById('cellAddress').textContent = cellId;
+                    highlightReferencedCells();
+                }, 10);
+                return;
+            }
             
             // If starting to type = in a cell, move to formula bar
             setTimeout(() => {
@@ -421,18 +438,6 @@
                     document.getElementById('cellAddress').textContent = cellId;
                 }
             }, 10);
-            
-            // Show formula if cell has one
-            if (cellFormulas[cellId] && !isEditingFormula) {
-                setTimeout(() => {
-                    params.api.stopEditing();
-                    params.api.startEditingCell({
-                        rowIndex: params.rowIndex,
-                        colKey: params.column.colId,
-                        charPress: cellFormulas[cellId]
-                    });
-                }, 0);
-            }
         }
 
         function onCellValueChanged(params) {
@@ -457,18 +462,22 @@
                 cellData[cellId] = result;
                 
                 const rowNode = gridApi.getRowNode(rowIndex);
-                rowNode.setDataValue(colId, result);
+                if (rowNode) {
+                    rowNode.setDataValue(colId, result);
+                }
             } else {
                 delete cellFormulas[cellId];
                 cellData[cellId] = value;
                 
                 const rowNode = gridApi.getRowNode(rowIndex);
-                rowNode.setDataValue(colId, value);
+                if (rowNode) {
+                    rowNode.setDataValue(colId, value);
+                }
             }
             
-            // Update formula bar
+            // Update formula bar to show the actual formula or value
             if (selectedCell && selectedCell.rowIndex === rowIndex && selectedCell.column.colId === colId) {
-                document.getElementById('formulaInput').value = cellFormulas[cellId] || value || '';
+                formulaInput.value = cellFormulas[cellId] || value || '';
             }
         }
 
